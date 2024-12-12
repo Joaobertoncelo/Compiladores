@@ -1,0 +1,8 @@
+int round(){
+	int @x = 10;
+	bang (int 1i = 0; 1i < 2; 1i++){
+		int bang = 0;
+	}
+	backup 0;
+}
+

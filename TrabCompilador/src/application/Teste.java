@@ -1,56 +1,52 @@
 package application;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 
 import analisadorLexico.Token;
 import analisadorLexico.analiseLexica;
+import analisadorSintatico.AnaliseSintatica;
+import analisadorSintatico.NodoAST;
+import analisadorSintatico.SyntaxException;
 
 public class Teste {
+    public static void main(String[] args) throws SyntaxException {
+        String caminhoArquivo = "D:\\Faculdade\\teste.txt";
 
-	public static void main(String[] args) {
-		String codigoFonte =   "int round() {  // Palavra-chave \"round\" para iniciar o main\n" +
-	            "            int x = 10;      // Palavra-chave \"int\" para declarar a variável\n" +
-	            "            float y = 5.5;   // Palavra-chave \"float\" para declarar a variável\n" +
-	            "            char z = 'a';    // Palavra-chave \"char\" para declarar a variável\n" +
-	            "\n" +
-	            "            bang (x > 5) {     // Palavra-chave \"bang\" (equivalente ao \"if\")\n" +
-	            "                molotov;     // Palavra-chave \"molotov\" (equivalente ao \"else\")\n" +
-	            "            }\n" +
-	            "\n" +
-	            "            rush (x < 10) {  // Palavra-chave \"rush\" (equivalente ao \"for\")\n" +
-	            "                x = x + 1;\n" +
-	            "            }\n" +
-	            "\n" +
-	            "            smoke (x != 10) {  // Palavra-chave \"smoke\" (equivalente ao \"while\")\n" +
-	            "                y = y + 2.0;\n" +
-	            "            }\n" +
-	            "\n" +
-	            "            baiter (x == 5) {  // Palavra-chave \"baiter\" (equivalente ao \"switch\")\n" +
-	            "                baita 1:        // Palavra-chave \"baita\" (equivalente ao \"case\")\n" +
-	            "                    x = x + 2;\n" +
-	            "                    antrush;\n" +
-	            "                baita 2:\n" +
-	            "                    y = y + 3.0;\n" +
-	            "                    antrush;\n" +
-	            "                setup:\n" +
-	            "                    z = 'b';\n" +
-	            "                    antrush;\n" +
-	            "            }\n" +
-	            "\n" +
-	            "            troll;             // Palavra-chave \"troll\" (equivalente ao \"void\")\n" +
-	            "            backup x;          // Palavra-chave \"return\" (para retornar um valor)\n" +
-	            "        }\n" +
-	            "    }\n" +
-	            "}\n";
-		analiseLexica analisador = new analiseLexica(codigoFonte);
-		List<Token> tokens = analisador.analisar();
+        try {
+            String codigoFonte = new String(Files.readAllBytes(Paths.get(caminhoArquivo)));
 
-		for (Token token : tokens) {
-			if (token != null) {
-				System.out.println(token);
-			}
-		}
+            analiseLexica analisadorLexico = new analiseLexica(codigoFonte);
+            List<Token> tokens = analisadorLexico.analisar();
 
-	}
+            System.out.println("Tokens encontrados:");
+            for (Token token : tokens) {
+                System.out.println(token);
+            }
 
+            AnaliseSintatica analisadorSintatico = new AnaliseSintatica(tokens);
+            NodoAST arvore = analisadorSintatico.analisarPrograma();
+            imprimirAST(arvore, 0);
+
+            System.out.println("Análise sintática concluída com sucesso!");
+
+
+        } catch (IOException e) {
+            System.out.println("Erro ao ler o arquivo: " + e.getMessage());
+        } catch (SyntaxException e) {
+            System.out.println("Erro de análise sintática: " + e.getMessage());
+        } catch (RuntimeException e) {
+            System.out.println("Erro inesperado: " + e.getMessage());
+        }
+    }
+    
+    private static void imprimirAST(NodoAST nodo, int nivel) {
+        for (int i = 0; i < nivel; i++) System.out.print("  ");
+        System.out.println(nodo.getTipo() + (nodo.getValor() != null ? " (" + nodo.getValor() + ")" : ""));
+        for (NodoAST filho : nodo.getFilhos()) {
+            imprimirAST(filho, nivel + 1);
+        }
+    }
 }
