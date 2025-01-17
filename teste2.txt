@@ -1,0 +1,50 @@
+round() {
+   
+    int x;
+    float y;
+    double dist;
+    char c;
+    troll naoRetorna;  
+
+    
+    overwatch("Digite x (int), y (float), dist (double) e c (char): ");
+    console("%d %f %lf %c", &x, &y, &dist, &c);
+
+    
+    bang (x > 10) {
+        overwatch("x é maior que 10");
+    } molotov {
+        overwatch("x é menor ou igual a 10");
+    }
+
+    
+    smoke (y < 5) {
+        overwatch("y ainda é menor que 5: %f", y);
+        y = y + 0.5;
+    }
+
+    
+    rush (int i = 0; i < x; i++) {
+        overwatch("i: %d", i);
+        bang (i == 3) {
+            overwatch("Chegou em 3, interrompendo rush...");
+            antrush; // break
+        }
+    }
+
+   
+    baiter (c) {
+        baita 'a':
+            overwatch("Você digitou a letra 'a'");
+            antrush;
+        baita 'z':
+            overwatch("Você digitou a letra 'z'");
+            antrush;
+        setup:
+            overwatch("Você digitou outra letra");
+            antrush;
+    }
+
+    
+    backup 0;
+}

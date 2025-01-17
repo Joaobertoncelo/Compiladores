@@ -17,10 +17,39 @@ public class AnaliseSintatica {
     public AnaliseSintatica(List<Token> tokens) {
         this.tokens = tokens;
         this.iterador = tokens.iterator();
+        avancar(); 
+    }
+
+
+    private void avancar() {
+        tokenAtual = iterador.hasNext() ? iterador.next() : null;
+    }
+
+    private boolean igual(String valor) {
+        return tokenAtual != null && tokenAtual.getValor().equals(valor);
+    }
+
+    private void consumir(String esperado) throws SyntaxException {
+        if (tokenAtual == null || !tokenAtual.getValor().equals(esperado)) {
+            throw new SyntaxException("Esperado '" + esperado + "', encontrado: "
+                    + (tokenAtual == null ? "EOF" : tokenAtual.getValor()));
+        }
         avancar();
     }
 
+   
+
     public NodoAST analisarPrograma() throws SyntaxException {
+        
+        NodoAST programa = new NodoAST(Tipo.PROGRAMA);
+
+        
+        while (tokenAtual != null && igual("exec")) {
+            NodoAST execNode = analisarExec(); 
+            programa.adicionarFilho(execNode);
+        }
+
+       
         if (!igual("round")) {
             throw new SyntaxException("Esperado 'round' no início do programa.");
         }
@@ -32,15 +61,48 @@ public class AnaliseSintatica {
         NodoAST blocoPrincipal = analisarBloco();
         consumir("}");
 
+       
         if (iterador.hasNext()) {
             throw new SyntaxException("Código após o fim do programa não é permitido.");
         }
 
-        NodoAST programa = new NodoAST(Tipo.PROGRAMA);
+       
         programa.adicionarFilho(blocoPrincipal);
         return programa;
     }
 
+    
+    private NodoAST analisarExec() throws SyntaxException {
+        consumir("exec");
+        if (tokenAtual == null || tokenAtual.getType() != TokenType.IDENTIFICADOR) {
+            throw new SyntaxException("Esperado identificador após 'exec'.");
+        }
+        String nomeStruct = tokenAtual.getValor();
+        avancar(); 
+
+        consumir("{");
+
+        
+        NodoAST execNode = new NodoAST(Tipo.EXEC, nomeStruct);
+
+        
+        while (!igual("}")) {
+            if (tokenAtual == null) {
+                throw new SyntaxException("Fim inesperado dentro de 'exec'.");
+            }
+            if (igual("int") || igual("float") || igual("double") || igual("char") || igual("troll")) {
+                NodoAST decl = analisarDeclaracaoVariavel();
+                execNode.adicionarFilho(decl);
+            } else {
+                throw new SyntaxException("Token inesperado em 'exec': " + tokenAtual.getValor());
+            }
+        }
+
+        consumir("}");
+        return execNode;
+    }
+
+    
     private NodoAST analisarBloco() throws SyntaxException {
         NodoAST bloco = new NodoAST(Tipo.BLOCO);
         while (tokenAtual != null && !igual("}")) {
@@ -50,8 +112,11 @@ public class AnaliseSintatica {
         return bloco;
     }
 
+   
     private NodoAST analisarComando() throws SyntaxException {
-        if (tokenAtual == null) throw new SyntaxException("Fim inesperado de arquivo.");
+        if (tokenAtual == null) {
+            throw new SyntaxException("Fim inesperado de arquivo.");
+        }
 
         if (tokenAtual.getType() == TokenType.PALAVRA_CHAVE) {
             switch (tokenAtual.getValor()) {
@@ -77,76 +142,182 @@ public class AnaliseSintatica {
                     return analisarReturn();
                 case "console":
                 case "overwatch":
+                    
                     return analisarChamadaFuncao(tokenAtual.getValor());
                 default:
                     throw new SyntaxException("Palavra-chave inesperada: " + tokenAtual.getValor());
             }
         } else if (tokenAtual.getType() == TokenType.IDENTIFICADOR) {
-            return analisarAtribuicao();
+           
+            return analisarAtribOuFuncCall();
         } else {
             throw new SyntaxException("Token inesperado no bloco: " + tokenAtual.getValor());
         }
     }
 
+    
     private NodoAST analisarDeclaracaoVariavel() throws SyntaxException {
-        String tipoVar = tokenAtual.getValor();
-        avancar();
+        String tipoVar = tokenAtual.getValor(); 
+        avancar(); 
 
         if (tokenAtual.getType() != TokenType.IDENTIFICADOR) {
             throw new SyntaxException("Esperado identificador após o tipo de variável.");
         }
-
         String nomeVar = tokenAtual.getValor();
-        avancar();
+        avancar(); 
 
-        NodoAST decl = new NodoAST(Tipo.DECLARACAO_VARIAVEL, nomeVar);
-        decl.adicionarFilho(new NodoAST(Tipo.EXPRESSAO_LITERAL, tipoVar));
+        
+        if (igual("[")) {
+            avancar(); 
+            if (tokenAtual.getType() != TokenType.NUMERO) {
+                throw new SyntaxException("Esperado número como tamanho do vetor.");
+            }
+            String tamanho = tokenAtual.getValor();
+            avancar(); 
+            consumir("]");
+            consumir(";");
 
-        if (igual("=")) {
-            avancar();
-            NodoAST expr = analisarExpressao(); 
-            decl.adicionarFilho(expr);
+           
+            NodoAST declVetor = new NodoAST(Tipo.DECLARACAO_VETOR, nomeVar);
+           
+            declVetor.adicionarFilho(new NodoAST(Tipo.EXPRESSAO_LITERAL, tipoVar));
+           
+            declVetor.adicionarFilho(new NodoAST(Tipo.EXPRESSAO_LITERAL, tamanho));
+            return declVetor;
+        } else {
+            
+            NodoAST decl = new NodoAST(Tipo.DECLARACAO_VARIAVEL, nomeVar);
+            decl.adicionarFilho(new NodoAST(Tipo.EXPRESSAO_LITERAL, tipoVar));
+
+           
+            if (igual("=")) {
+                avancar();
+                NodoAST expr = analisarExpressao();
+                decl.adicionarFilho(expr);
+            }
+            consumir(";");
+            return decl;
         }
-
-        consumir(";");
-        return decl;
     }
 
+    
+    private NodoAST analisarAtribOuFuncCall() throws SyntaxException {
+        if (tokenAtual.getType() != TokenType.IDENTIFICADOR) {
+            throw new SyntaxException("Esperado identificador.");
+        }
+        String nome = tokenAtual.getValor(); 
+        avancar(); 
+
+        
+        if (igual("[")) {
+            
+            avancar(); 
+            NodoAST indice = analisarExpressao(); 
+            consumir("]"); 
+            consumir("="); 
+            NodoAST expr = analisarExpressao(); 
+            consumir(";");
+
+          
+            NodoAST atribArray = new NodoAST(Tipo.ATRIBUICAO_ARRAY, nome);
+            atribArray.adicionarFilho(indice);
+            atribArray.adicionarFilho(expr);
+            return atribArray;
+        }
+        
+        else if (igual("=")) {
+            avancar(); 
+            NodoAST expr = analisarExpressao();
+            consumir(";");
+            NodoAST atrib = new NodoAST(Tipo.ATRIBUICAO, nome);
+            atrib.adicionarFilho(expr);
+            return atrib;
+        }
+        
+        else if (igual("(")) {
+            avancar(); 
+            NodoAST callNode = new NodoAST(Tipo.FUNC_CALL, nome);
+            if (!igual(")")) {
+                callNode.adicionarFilho(analisarExpressao());
+                while (!igual(")")) {
+                    consumir(",");
+                    callNode.adicionarFilho(analisarExpressao());
+                }
+            }
+            consumir(")");
+            consumir(";");
+            return callNode;
+        }
+        
+        else {
+            throw new SyntaxException("Esperado '=', '(' ou '[' após identificador '" + nome + "'.");
+        }
+    }
+
+
+    
+   
     private NodoAST analisarChamadaFuncao(String funcao) throws SyntaxException {
+        
         avancar(); 
         consumir("(");
 
-        if (tokenAtual.getType() != TokenType.STRING) {
+        
+        if (tokenAtual == null || tokenAtual.getType() != TokenType.STRING) {
             throw new SyntaxException("Esperado string como primeiro argumento de '" + funcao + "'.");
         }
         String stringArg = tokenAtual.getValor();
-        avancar();
+        avancar(); 
 
-        NodoAST chamada = new NodoAST(Tipo.CHAMADA_FUNCAO, funcao);
-        chamada.adicionarFilho(new NodoAST(Tipo.EXPRESSAO_LITERAL, stringArg));
+        
+        NodoAST chamada = new NodoAST(NodoAST.Tipo.CHAMADA_FUNCAO, funcao);
+        
+        chamada.adicionarFilho(new NodoAST(NodoAST.Tipo.EXPRESSAO_LITERAL, stringArg));
 
         while (!igual(")")) {
-            consumir(",");
-            if (funcao.equals("console")) {
-                
-                if (tokenAtual.getType() != TokenType.OPERADOR || !tokenAtual.getValor().equals("&")) {
-                    throw new SyntaxException("Esperado '&' antes da variável em '" + funcao + "'.");
-                }
-                avancar(); 
+            consumir(","); 
 
-                if (tokenAtual.getType() != TokenType.IDENTIFICADOR) {
-                    throw new SyntaxException("Esperado identificador após '&' em '" + funcao + "'.");
+           
+            if (funcao.equals("console")) {
+                if (igual("&")) {
+                    avancar(); 
+                    if (tokenAtual.getType() != TokenType.IDENTIFICADOR) {
+                        throw new SyntaxException("Esperado identificador após '&' em '" + funcao + "'.");
+                    }
+                    String nomeVar = tokenAtual.getValor();
+                    avancar(); 
+
+                    
+                    NodoAST baseRef;
+                    if (igual("[")) {
+                        avancar(); 
+                        NodoAST indice = analisarExpressao(); // seu método para parse de expr
+                        consumir("]");
+
+                        
+                        baseRef = new NodoAST(NodoAST.Tipo.EXPRESSAO_VETOR, nomeVar);
+                        baseRef.adicionarFilho(indice);
+                    } else {
+                        
+                        baseRef = new NodoAST(NodoAST.Tipo.EXPRESSAO_VARIAVEL, nomeVar);
+                    }
+
+                    
+                    NodoAST ponteiroNode = new NodoAST(NodoAST.Tipo.EXPRESSAO_PONTEIRO, "&");
+                    ponteiroNode.adicionarFilho(baseRef);
+
+                    chamada.adicionarFilho(ponteiroNode);
                 }
-                String varRef = tokenAtual.getValor();
-                avancar();
-                chamada.adicionarFilho(new NodoAST(Tipo.EXPRESSAO_VARIAVEL, varRef));
-            } else {
-                if (tokenAtual.getType() != TokenType.IDENTIFICADOR) {
-                    throw new SyntaxException("Esperado identificador como argumento de '" + funcao + "'.");
+                else {
+                   
+                    NodoAST arg = analisarExpressao();
+                    chamada.adicionarFilho(arg);
                 }
-                String varArg = tokenAtual.getValor();
-                avancar();
-                chamada.adicionarFilho(new NodoAST(Tipo.EXPRESSAO_VARIAVEL, varArg));
+            }
+            else {
+                
+                NodoAST arg = analisarExpressao();
+                chamada.adicionarFilho(arg);
             }
         }
 
@@ -157,32 +328,32 @@ public class AnaliseSintatica {
     }
 
 
+
+
+   
     private NodoAST analisarLoopFor() throws SyntaxException {
         avancar(); 
         consumir("(");
+        
         NodoAST decl = analisarDeclaracaoVariavel(); 
+       
         NodoAST cond = analisarExpressao(); 
         consumir(";");
-        
        
         NodoAST incremento;
         if (tokenAtual.getType() == TokenType.IDENTIFICADOR) {
             String varInc = tokenAtual.getValor();
-            avancar(); 
+            avancar();
 
-            
             if (igual("+")) {
-                avancar(); 
+                avancar();
                 if (!igual("+")) {
                     throw new SyntaxException("Esperado '++' no incremento do loop 'rush'.");
                 }
                 avancar(); 
-
-                
                 incremento = new NodoAST(Tipo.EXPRESSAO_BINARIA, "++");
                 incremento.adicionarFilho(new NodoAST(Tipo.EXPRESSAO_VARIAVEL, varInc));
             } else {
-        
                 throw new SyntaxException("Esperado incremento '++' no loop 'rush'.");
             }
         } else {
@@ -194,7 +365,7 @@ public class AnaliseSintatica {
         NodoAST bloco = analisarBloco();
         consumir("}");
 
-        NodoAST loopFor = new NodoAST(Tipo.FOR);
+        NodoAST loopFor = new NodoAST(Tipo.RUSH);
         loopFor.adicionarFilho(decl);
         loopFor.adicionarFilho(cond);
         loopFor.adicionarFilho(incremento);
@@ -202,9 +373,9 @@ public class AnaliseSintatica {
         return loopFor;
     }
 
-
+    
     private NodoAST analisarLoopWhile() throws SyntaxException {
-        avancar(); // smoke
+        avancar(); 
         consumir("(");
         NodoAST cond = analisarExpressao();
         consumir(")");
@@ -212,14 +383,15 @@ public class AnaliseSintatica {
         NodoAST bloco = analisarBloco();
         consumir("}");
 
-        NodoAST w = new NodoAST(Tipo.WHILE);
+        NodoAST w = new NodoAST(Tipo.SMOKE);
         w.adicionarFilho(cond);
         w.adicionarFilho(bloco);
         return w;
     }
 
+   
     private NodoAST analisarCondicionalIf() throws SyntaxException {
-        avancar(); // bang
+        avancar(); 
         consumir("(");
         NodoAST cond = analisarExpressao();
         consumir(")");
@@ -227,29 +399,29 @@ public class AnaliseSintatica {
         NodoAST blocoIf = analisarBloco();
         consumir("}");
 
-        NodoAST ifNode = new NodoAST(Tipo.IF);
+        NodoAST ifNode = new NodoAST(Tipo.BANG);
         ifNode.adicionarFilho(cond);
         ifNode.adicionarFilho(blocoIf);
 
         if (tokenAtual != null && igual("molotov")) {
-            avancar();
+            avancar(); 
             consumir("{");
             NodoAST blocoElse = analisarBloco();
             consumir("}");
             ifNode.adicionarFilho(blocoElse);
         }
-
         return ifNode;
     }
 
+   
     private NodoAST analisarSwitch() throws SyntaxException {
-        avancar(); // baiter
+        avancar(); 
         consumir("(");
         NodoAST expr = analisarExpressao();
         consumir(")");
         consumir("{");
 
-        NodoAST sw = new NodoAST(Tipo.SWITCH);
+        NodoAST sw = new NodoAST(Tipo.BAITER);
         sw.adicionarFilho(expr);
 
         while (!igual("}")) {
@@ -262,7 +434,7 @@ public class AnaliseSintatica {
                 avancar();
                 consumir(":");
                 List<NodoAST> cmds = analisarListaComandosCase();
-                NodoAST caso = new NodoAST(Tipo.CASE, valor);
+                NodoAST caso = new NodoAST(Tipo.BAITA, valor);
                 for (NodoAST c : cmds) {
                     caso.adicionarFilho(c);
                 }
@@ -271,7 +443,7 @@ public class AnaliseSintatica {
                 avancar();
                 consumir(":");
                 List<NodoAST> cmds = analisarListaComandosCase();
-                NodoAST def = new NodoAST(Tipo.DEFAULT);
+                NodoAST def = new NodoAST(Tipo.SETUP);
                 for (NodoAST c : cmds) {
                     def.adicionarFilho(c);
                 }
@@ -291,6 +463,7 @@ public class AnaliseSintatica {
 
         while (tokenAtual != null) {
             String valor = tokenAtual.getValor();
+            
             if (valor.equals("baita") || valor.equals("setup") || valor.equals("}")) {
                 if (!encontrouAntrush) {
                     throw new SyntaxException("Esperado 'antrush;' antes de outro case ou '}' no switch.");
@@ -312,49 +485,32 @@ public class AnaliseSintatica {
 
             throw new SyntaxException("Comando não reconhecido no case: " + valor);
         }
-
         throw new SyntaxException("Fim inesperado dentro do 'baiter'.");
     }
 
+   
     private NodoAST analisarBreak() throws SyntaxException {
         avancar(); 
         consumir(";");
         return new NodoAST(Tipo.BREAK);
     }
 
+   
     private NodoAST analisarReturn() throws SyntaxException {
         avancar(); // backup
         NodoAST expr = analisarExpressao();
         consumir(";");
-        NodoAST ret = new NodoAST(Tipo.RETURN);
+        NodoAST ret = new NodoAST(Tipo.BACKUP);
         ret.adicionarFilho(expr);
         return ret;
     }
 
-    private NodoAST analisarAtribuicao() throws SyntaxException {
-        if (tokenAtual.getType() != TokenType.IDENTIFICADOR) {
-            throw new SyntaxException("Esperado identificador no início da atribuição.");
-        }
-        String nomeVar = tokenAtual.getValor();
-        avancar();
-
-        consumir("=");
-
-        
-        NodoAST expr = analisarExpressao();
-
-        consumir(";");
-
-        NodoAST atrib = new NodoAST(NodoAST.Tipo.ATRIBUICAO, nomeVar);
-        atrib.adicionarFilho(expr);
-        return atrib;
-    }
-
+    
 
     private NodoAST analisarExpressao() throws SyntaxException {
+        
         return analisarExpressaoIgualdade();
     }
-
 
     private NodoAST analisarExpressaoIgualdade() throws SyntaxException {
         NodoAST expr = analisarExpressaoRelacional();
@@ -367,7 +523,6 @@ public class AnaliseSintatica {
         return expr;
     }
 
-  
     private NodoAST analisarExpressaoRelacional() throws SyntaxException {
         NodoAST expr = analisarExpressaoAditiva();
         while (igual("<") || igual(">") || igual("<=") || igual(">=")) {
@@ -379,7 +534,6 @@ public class AnaliseSintatica {
         return expr;
     }
 
-   
     private NodoAST analisarExpressaoAditiva() throws SyntaxException {
         NodoAST expr = analisarExpressaoMultiplicativa();
         while (igual("+") || igual("-")) {
@@ -391,7 +545,6 @@ public class AnaliseSintatica {
         return expr;
     }
 
- 
     private NodoAST analisarExpressaoMultiplicativa() throws SyntaxException {
         NodoAST expr = analisarFator();
         while (igual("*") || igual("/") || igual("%")) {
@@ -403,34 +556,6 @@ public class AnaliseSintatica {
         return expr;
     }
 
-    
-    private NodoAST analisarFator() throws SyntaxException {
-        if (tokenAtual == null) {
-            throw new SyntaxException("Expressão incompleta.");
-        }
-
-        if (tokenAtual.getType() == TokenType.IDENTIFICADOR) {
-            String nome = tokenAtual.getValor();
-            avancar();
-            return new NodoAST(Tipo.EXPRESSAO_VARIAVEL, nome);
-        } else if (tokenAtual.getType() == TokenType.NUMERO) {
-            String valor = tokenAtual.getValor();
-            avancar();
-            return new NodoAST(Tipo.EXPRESSAO_LITERAL, valor);
-        } else if (tokenAtual.getType() == TokenType.STRING) {
-            String valor = tokenAtual.getValor();
-            avancar();
-            return new NodoAST(Tipo.EXPRESSAO_LITERAL, valor);
-        } else if (igual("(")) {
-            avancar();
-            NodoAST expr = analisarExpressao();
-            consumir(")");
-            return expr;
-        }
-
-        throw new SyntaxException("Fator inesperado: " + tokenAtual.getValor());
-    }
-
     private NodoAST criarExpressaoBinaria(NodoAST esquerda, String op, NodoAST direita) {
         NodoAST expr = new NodoAST(Tipo.EXPRESSAO_BINARIA, op);
         expr.adicionarFilho(esquerda);
@@ -438,18 +563,64 @@ public class AnaliseSintatica {
         return expr;
     }
 
-    private void consumir(String esperado) throws SyntaxException {
-        if (tokenAtual == null || !tokenAtual.getValor().equals(esperado)) {
-            throw new SyntaxException("Esperado '" + esperado + "', encontrado: " + (tokenAtual == null ? "EOF" : tokenAtual.getValor()));
+   
+    private NodoAST analisarFator() throws SyntaxException {
+        if (tokenAtual == null) {
+            throw new SyntaxException("Expressão incompleta.");
         }
-        avancar();
-    }
 
-    private boolean igual(String valor) {
-        return tokenAtual != null && tokenAtual.getValor().equals(valor);
-    }
+        if (tokenAtual.getType() == TokenType.IDENTIFICADOR) {
+            String nome = tokenAtual.getValor();
+            avancar(); 
 
-    private void avancar() {
-        tokenAtual = iterador.hasNext() ? iterador.next() : null;
+            
+            if (igual("[")) {
+                avancar();
+                NodoAST indice = analisarExpressao();
+                consumir("]");
+               
+                NodoAST arrayAccess = new NodoAST(Tipo.EXPRESSAO_VETOR, nome);
+                arrayAccess.adicionarFilho(indice);
+                return arrayAccess;
+            }
+           
+            else if (igual("(")) {
+                
+                NodoAST callNode = new NodoAST(Tipo.FUNC_CALL, nome);
+                avancar();
+                if (!igual(")")) {
+                    callNode.adicionarFilho(analisarExpressao());
+                    while (!igual(")")) {
+                        consumir(",");
+                        callNode.adicionarFilho(analisarExpressao());
+                    }
+                }
+                consumir(")");
+                return callNode;
+            }
+            else {
+               
+                return new NodoAST(Tipo.EXPRESSAO_VARIAVEL, nome);
+            }
+        }
+        else if (tokenAtual.getType() == TokenType.NUMERO) {
+            String valor = tokenAtual.getValor();
+            avancar();
+            return new NodoAST(Tipo.EXPRESSAO_LITERAL, valor);
+        }
+        else if (tokenAtual.getType() == TokenType.STRING) {
+            String valor = tokenAtual.getValor();
+            avancar();
+            return new NodoAST(Tipo.EXPRESSAO_LITERAL, valor);
+        }
+        else if (igual("(")) {
+            avancar();
+            NodoAST expr = analisarExpressao();
+            consumir(")");
+            return expr;
+        }
+        else {
+            throw new SyntaxException("Fator inesperado: " + tokenAtual.getValor());
+        }
     }
 }

@@ -14,7 +14,7 @@ public class analiseLexica {
     private static final String PADRAO_OPERADOR = "[+\\-*/%&|^!~]"; // Operadores aritméticos e bitwise
     private static final String PADRAO_OPERADOR_COMPARACAO = "(==|!=|>=|<=|>|<)"; // Operadores de comparação
     private static final String PADRAO_PONTUACAO = "[:;,\\(\\)\\[\\]\\{\\}]"; // Pontuação
-    private static final String PADRAO_PALAVRA_CHAVE = "(round|int|float|double|char|troll|bang|molotov|smoke|rush|baiter|baita|backup|antrush|setup|console|overwatch)"; // Palavras-chave
+    private static final String PADRAO_PALAVRA_CHAVE = "(round|int|float|double|char|troll|bang|molotov|smoke|rush|baiter|baita|backup|antrush|setup|console|overwatch|exec)"; // Palavras-chave
     private static final String PADRAO_PARAR_NUMERO_INICIO = "\\d+[a-zA-Z_]+"; // Identificadores inválidos iniciados por números
     private static final String PADRAO_SINAL_IGUAL = "(=)";
 
