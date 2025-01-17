@@ -1,8 +1,47 @@
-int round(){
-	int @x = 10;
-	bang (int 1i = 0; 1i < 2; 1i++){
-		int bang = 0;
-	}
-	backup 0;
+exec Person {
+    int age;
+    char name[20];
 }
 
+exec Data {
+    double values[5];
+    troll semRetorno; // troll = void
+}
+
+round() {
+    // Declara um vetor de 5 inteiros
+    int nums[5];
+    int i;
+
+    // Lê o primeiro elemento do vetor (nums[0]) usando console (scanf)
+    console("%d", &nums[0]);
+
+    // Chama a função 'soma' (já declarada na tabela de símbolos) passando nums[0] e 10
+    i = soma(nums[0], 10);
+
+    // Comando de decisão if/else -> (bang/molotov)
+    bang (i > 20) {
+        overwatch("i is greater than 20: %d", i);
+    } molotov {
+        overwatch("i is less or equal to 20: %d", i);
+    }
+
+    // Comando de repetição while -> (smoke)
+    smoke (i < 30) {
+        overwatch("Incrementing i: %d", i);
+        i = i + 1;
+    }
+
+    // Comando de repetição for -> (rush)
+    // O equivalente a: for (int j = 0; j < 5; j++)
+    rush (int j = 0; j < 5; j++) {
+        // Lê cada posição do vetor nums
+        console("%d", &nums[j]);
+    }
+
+    // Imprime um dos valores do vetor, por exemplo nums[2]
+    overwatch("nums[2] = %d", nums[2]);
+
+    // Retorno da função principal -> backup 0;
+    backup 0;
+}
